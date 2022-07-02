@@ -1,0 +1,38 @@
+{
+  "name": "voynich-ipsum",
+  "version": "1.0.0",
+  "description": "Generates natural-looking lorem ipsum text.",
+  "main": "lib/index.js",
+  "types": "lib/index.ts",
+  "scripts": {
+    "test": "jest --config jestconfig.json",
+    "build": "tsc"
+  },
+  "keywords": [
+    "lorem",
+    "ipsum",
+    "generator"
+  ],
+  "author": {
+    "name": "David F. Houghton",
+    "url": "https://github.com/dfhoughton"
+  },
+  "license": "MIT",
+  "homepage": "https://github.com/dfhoughton/pick-me",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/dfhoughton/pick-me"
+  },
+  "devDependencies": {
+    "@types/jest": "^27.4.1",
+    "eslint": "^8.13.0",
+    "eslint-config-prettier": "^8.5.0",
+    "jest": "^27.5.1",
+    "prettier": "^2.6.2",
+    "ts-jest": "^27.1.4",
+    "typescript": "^4.6.3"
+  },
+  "dependencies": {
+    "pick-me-too": "^1.2.1"
+  }
+}

@@ -54,7 +54,8 @@ console.log(lang.nounPhrase('foo'))
 The choices in here are based in some cases on published research in linguistic typology, sometimes in statistics I scraped out of
 random text I found on the Internet, and most often out of plausible-seeming numbers I pulled out of my ass. There is a *vast* amount
 of linguistic variation I have not covered. This does not produce ergative-absolutive languages (or nominative-accusative languages,
-for that matter). It produces phonemes that were easy to produce with a mostly latinate character set. It has no variation in orthography.
-It never produces a left-to-right language. Etc. Etc. Etc.
+for that matter). It does not know about vowel harmony. It can't produce languages with tone, or nasal vowels. It can't do noun class
+agreement between nouns and adjectives. It doesn't really know about adjectives at all. It produces phonemes that were easy to produce
+with a mostly latinate character set. It has no variation in orthography. It never produces a left-to-right language. Etc. Etc. Etc.
 
 I had great ambitions for covering typological variables and gave up on most of them because I'm lazy and my attention wanders.

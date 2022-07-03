@@ -1,8 +1,9 @@
-import { pickMe, Rng } from 'pick-me-too'
+import { pickMe, pickMeToo, Rng } from 'pick-me-too'
 import { MorphologyEngine } from './morphology'
-import { Hmm, shuffle } from './util'
+import { capitalize, Hmm, shuffle } from './util'
 
 export type Syntax = {
+  verbRequiresSubject?: boolean
   basicWordOrder?: BasicWordOrder
   questionParticlePosition?: DiscourseParticlePosition
   assertionParticlePosition?: DiscourseParticlePosition
@@ -19,33 +20,31 @@ type DiscourseParticlePosition = 'initial' | 'final' | 'none'
 
 type RelativeOrder = 'before' | 'after'
 
-type NounPhraseParams = {
-  stem?: string
-  simple?: boolean
-}
+type SententialParticlePosition = 'initial' | 'final' | 'beforeVerb' | 'afterVerb'
 
 /**
  * The thing that puts words in order.
  */
 export class SyntaxEngine {
-  private morphology: MorphologyEngine
+  private morphology: Readonly<MorphologyEngine>
   private syntax: Syntax
   private rng: Rng
   private stemlessNoun!: () => string
   private nounModifier!: () => null | string
   private relativeParticle!: string
   private basicClause!: (...topics: string[]) => string
+  private sententialParticlePositions!: () => Record<SententialParticlePosition, number>
   assertionParticle?: () => string
   questionParticle?: () => string
   adposition!: () => string
-  nounPhrase!: (params?: NounPhraseParams) => string
+  nounPhrase!: (stem?: string) => string
   verbPhrase!: (stem?: string) => string
   adpositionPhrase!: (stem?: string) => string
   adverbial!: () => string
   assertion!: (...topics: string[]) => string
   question!: (...topics: string[]) => string
   exclamation!: (...topics: string[]) => string
-  constructor(m: MorphologyEngine, s: Syntax = {}, rng: Rng = () => Math.random()) {
+  constructor(m: Readonly<MorphologyEngine>, s: Syntax = {}, rng: Rng = () => Math.random()) {
     this.syntax = s
     this.morphology = m
     this.rng = rng
@@ -62,8 +61,35 @@ export class SyntaxEngine {
     this.initializeVerbPhrase(hmm)
     this.initializeAdverbials(hmm)
     this.initializeAdpositionPhrase()
-    this.initializeAssertion()
+    this.initializeSententialParticlePositions(hmm)
+    this.initializeAssertion(hmm)
     this.initializeQuestion()
+  }
+  private initializeSententialParticlePositions(hmm: Hmm) {
+    // mostly ad hoc -- these are sentence level adverbials, like 'lo and behold' or 'indeed'
+    const anyParticles = hmm.fromRange(0.01, 0.5)
+    const numberPicker = sententialParticleCountPicker(this.rng)
+    const positionPicker = pickMe(
+      (['initial', 'final', 'beforeVerb', 'afterVerb'] as SententialParticlePosition[]).map((s) => [s, this.rng()]) as [
+        SententialParticlePosition,
+        number,
+      ][],
+      this.rng,
+    )
+    const sententialParticlePositions = () => {
+      const rv: Record<SententialParticlePosition, number> = {
+        initial: 0,
+        final: 0,
+        beforeVerb: 0,
+        afterVerb: 0,
+      }
+      if (hmm.maybe(anyParticles)) {
+        const count = numberPicker()
+        for (let i = 0; i < count; i++) rv[positionPicker()]++
+      }
+      return rv
+    }
+    this.sententialParticlePositions = sententialParticlePositions
   }
   private initializeNounModifier(hmm: Hmm) {
     const modifierProbability = hmm.fromRange(0.05, 0.2)
@@ -94,40 +120,40 @@ export class SyntaxEngine {
       case 'initial':
         this.question = (...topics: string[]) => {
           const p = this.questionParticle!()
-          const clause = this.basicClause()
-          return titleize(p ? `${p} ${clause}?` : `${clause}?`)
+          const clause = this.basicClause(...topics)
+          return capitalize(p ? `${p} ${clause}?` : `${clause}?`)
         }
       case 'final':
         this.question = (...topics: string[]) => {
           const p = this.questionParticle!()
-          const clause = this.basicClause()
-          return titleize(p ? `${clause} ${p}?` : `${clause}?`)
+          const clause = this.basicClause(...topics)
+          return capitalize(p ? `${clause} ${p}?` : `${clause}?`)
         }
       default:
-        this.question = (...topics: string[]) => titleize(`${this.basicClause()}?`)
+        this.question = (...topics: string[]) => capitalize(`${this.basicClause(...topics)}?`)
     }
   }
   private initializeAdverbials(hmm: Hmm) {
     this.adverbial = () => (hmm.maybe(0.1) ? this.adpositionPhrase() : this.morphology.adverb())
   }
-  private initializeAssertion() {
-    // assume most verbs are used intransitively, ditransitives are rare
-    const argumentCount = pickMe(
-      [
-        [0, 12],
-        [1, 8],
-        [2, 1],
-      ],
-      this.rng,
-    )
+  private initializeAssertion(hmm: Hmm) {
+    const argumentCount = (
+      this.syntax.verbRequiresSubject ? argumentCountPickerSubjectIsRequired : argumentCountPickerSubjectNotRequired
+    )(this.rng)
     let basicClause: (...topics: string[]) => string
     switch (this.syntax.basicWordOrder!) {
       case 'VSO':
         {
           basicClause = (...topics: string[]): string => {
-            const ar = [this.verbPhrase()]
+            const pp = this.sententialParticlePositions()
+            const ar: string[] = []
+            while (pp.initial--) ar.push(this.morphology.particle())
+            while (pp.beforeVerb--) ar.push(this.morphology.particle())
+            ar.push(this.verbPhrase())
+            while (pp.afterVerb--) ar.push(this.morphology.particle())
             let n = argumentCount()
-            while (n--) ar.push(this.nounPhrase({ stem: topics.shift() }))
+            while (n--) ar.push(this.nounPhrase(topics.shift()))
+            while (pp.final--) ar.push(this.morphology.particle())
             return ar.join(' ')
           }
         }
@@ -135,14 +161,21 @@ export class SyntaxEngine {
       case 'SVO':
         {
           basicClause = (...topics: string[]): string => {
-            const ar = []
+            const pp = this.sententialParticlePositions()
+            const ar: string[] = []
+            const verbPhrase: string[] = []
+            while (pp.beforeVerb--) verbPhrase.push(this.morphology.particle())
+            verbPhrase.push(this.verbPhrase())
+            while (pp.afterVerb--) verbPhrase.push(this.morphology.particle())
+            while (pp.initial--) ar.push(this.morphology.particle())
             let n = argumentCount()
-            while (n--) ar.push(this.nounPhrase({ stem: topics.shift() }))
+            while (n--) ar.push(this.nounPhrase(topics.shift()))
             if (ar.length) {
-              ar.splice(1, 0, this.verbPhrase())
+              ar.splice(1, 0, ...verbPhrase)
             } else {
-              ar.push(this.verbPhrase())
+              ar.splice(0, 0, ...verbPhrase)
             }
+            while (pp.final--) ar.push(this.morphology.particle())
             return ar.join(' ')
           }
         }
@@ -150,10 +183,15 @@ export class SyntaxEngine {
       case 'SOV':
         {
           basicClause = (...topics: string[]): string => {
-            const ar = []
+            const pp = this.sententialParticlePositions()
+            const ar: string[] = []
+            while (pp.initial--) ar.push(this.morphology.particle())
             let n = argumentCount()
-            while (n--) ar.push(this.nounPhrase({ stem: topics.shift() }))
+            while (n--) ar.push(this.nounPhrase(topics.shift()))
+            while (pp.beforeVerb--) ar.push(this.morphology.particle())
             ar.push(this.verbPhrase())
+            while (pp.afterVerb--) ar.push(this.morphology.particle())
+            while (pp.final--) ar.push(this.morphology.particle())
             return ar.join(' ')
           }
         }
@@ -161,11 +199,17 @@ export class SyntaxEngine {
       case 'VOS':
         {
           basicClause = (...topics: string[]): string => {
-            const ar = []
+            const pp = this.sententialParticlePositions()
+            const ar: string[] = []
+            while (pp.initial--) ar.push(this.morphology.particle())
+            while (pp.beforeVerb--) ar.push(this.morphology.particle())
+            ar.push(this.verbPhrase())
+            while (pp.afterVerb--) ar.push(this.morphology.particle())
+            const args: string[] = []
             let n = argumentCount()
-            while (n--) ar.push(this.nounPhrase({ stem: topics.shift() }))
-            ar.reverse()
-            ar.unshift(this.verbPhrase())
+            while (n--) args.push(this.nounPhrase(topics.shift()))
+            ar.push(...args.reverse())
+            while (pp.final--) ar.push(this.morphology.particle())
             return ar.join(' ')
           }
         }
@@ -173,15 +217,25 @@ export class SyntaxEngine {
       case 'OVS':
         {
           basicClause = (...topics: string[]): string => {
-            const ar = []
+            const pp = this.sententialParticlePositions()
+            const ar: string[] = []
+            while (pp.initial--) ar.push(this.morphology.particle())
+            let args: string[] = []
             let n = argumentCount()
-            while (n--) ar.push(this.nounPhrase({ stem: topics.shift() }))
+            while (n--) args.push(this.nounPhrase(topics.shift()))
+            args = args.reverse()
+            const verbPhrase: string[] = []
+            while (pp.beforeVerb--) verbPhrase.push(this.morphology.particle())
+            verbPhrase.push(this.verbPhrase())
+            while (pp.afterVerb--) verbPhrase.push(this.morphology.particle())
             ar.reverse()
-            if (ar.length) {
-              ar.splice(1, 0, this.verbPhrase())
+            if (args.length) {
+              args.splice(1, 0, ...verbPhrase)
             } else {
-              ar.push(this.verbPhrase())
+              args.push(...verbPhrase)
             }
+            ar.push(...args)
+            while (pp.final--) ar.push(this.morphology.particle())
             return ar.join(' ')
           }
         }
@@ -189,21 +243,38 @@ export class SyntaxEngine {
       case 'OSV':
         {
           basicClause = (...topics: string[]): string => {
-            const ar = []
+            const pp = this.sententialParticlePositions()
+            const ar: string[] = []
+            while (pp.initial--) ar.push(this.morphology.particle())
+            let args: string[] = []
             let n = argumentCount()
-            while (n--) ar.push(this.nounPhrase({ stem: topics.shift() }))
-            ar.reverse()
+            while (n--) args.push(this.nounPhrase(topics.shift()))
+            ar.push(...args)
+            while (pp.beforeVerb--) ar.push(this.morphology.particle())
             ar.push(this.verbPhrase())
+            while (pp.afterVerb--) ar.push(this.morphology.particle())
+            while (pp.final--) ar.push(this.morphology.particle())
             return ar.join(' ')
           }
         }
         break
       default:
         basicClause = (...topics: string[]): string => {
-          const ar = [this.verbPhrase()]
+          const pp = this.sententialParticlePositions()
+          const ar: string[] = []
+          while (pp.initial--) ar.push(this.morphology.particle())
+          const verbPhrase: string[] = []
+          while (pp.beforeVerb--) verbPhrase.push(this.morphology.particle())
+          verbPhrase.push(this.verbPhrase())
+          while (pp.afterVerb--) verbPhrase.push(this.morphology.particle())
+          let args: string[] = []
           let n = argumentCount()
-          while (n--) ar.push(this.nounPhrase({ stem: topics.shift() }))
-          return shuffle(ar, this.rng).join(' ')
+          while (n--) args.push(this.nounPhrase(topics.shift()))
+          args = shuffle(args, this.rng)
+          args.splice(Math.round(hmm.fromRange(0, args.length)), 0, ...verbPhrase)
+          ar.push(...args)
+          while (pp.final--) ar.push(this.morphology.particle())
+          return ar.join(' ')
         }
     }
     this.basicClause = basicClause
@@ -212,70 +283,53 @@ export class SyntaxEngine {
         this.assertion = (...topics: string[]) => {
           const p = this.assertionParticle!()
           const clause = this.basicClause(...topics)
-          return titleize(p ? `${p} ${clause}.` : `${clause}.`)
+          return capitalize(p ? `${p} ${clause}.` : `${clause}.`)
         }
         break
       case 'final':
         this.assertion = (...topics: string[]) => {
           const p = this.assertionParticle!()
           const clause = this.basicClause(...topics)
-          return titleize(p ? `${clause} ${p}.` : `${clause}.`)
+          return capitalize(p ? `${clause} ${p}.` : `${clause}.`)
         }
         break
       default:
-        this.assertion = (...topics: string[]) =>
-          titleize(`${this.basicClause(...topics)}.`)
+        this.assertion = (...topics: string[]) => capitalize(`${this.basicClause(...topics)}.`)
     }
     switch (this.syntax.assertionParticlePosition) {
-        case 'initial':
-          this.exclamation = (...topics: string[]) => {
-            const p = this.assertionParticle!()
-            const clause = this.basicClause(...topics)
-            return titleize(p ? `${p} ${clause}!` : `${clause}!`)
-          }
-          break
-        case 'final':
-          this.exclamation = (...topics: string[]) => {
-            const p = this.assertionParticle!()
-            const clause = this.basicClause(...topics)
-            return titleize(p ? `${clause} ${p}!` : `${clause}!`)
-          }
-          break
-        default:
-          this.exclamation = (...topics: string[]) =>
-            titleize(`${this.basicClause(...topics)}!`)
-      }
+      case 'initial':
+        this.exclamation = (...topics: string[]) => {
+          const p = this.assertionParticle!()
+          const clause = this.basicClause(...topics)
+          return capitalize(p ? `${p} ${clause}!` : `${clause}!`)
+        }
+        break
+      case 'final':
+        this.exclamation = (...topics: string[]) => {
+          const p = this.assertionParticle!()
+          const clause = this.basicClause(...topics)
+          return capitalize(p ? `${clause} ${p}!` : `${clause}!`)
+        }
+        break
+      default:
+        this.exclamation = (...topics: string[]) => capitalize(`${this.basicClause(...topics)}!`)
     }
+  }
   private initializeAdpositionPhrase() {
     if (this.syntax.adpositionPosition === 'before') {
       this.adpositionPhrase = (stem?: string) =>
-        `${this.adposition()} ${stem ? this.nounPhrase({ stem }) : this.stemlessNoun()}`
+        `${this.adposition()} ${stem ? this.nounPhrase(stem) : this.stemlessNoun()}`
     } else {
       this.adpositionPhrase = (stem?: string) =>
-        `${stem ? this.nounPhrase({ stem }) : this.stemlessNoun()} ${this.adposition()}`
+        `${stem ? this.nounPhrase(stem) : this.stemlessNoun()} ${this.adposition()}`
     }
   }
   private initializeVerbPhrase(hmm: Hmm) {
+    this.syntax.verbRequiresSubject ??= hmm.maybe(0.5)
     this.syntax.usesAuxiliaryVerbs ??= this.morphology.config().analytic ? hmm.maybe(0.95) : hmm.maybe(0.1)
     let verb: (stem?: string) => string
     if (this.syntax.usesAuxiliaryVerbs) {
-      const auxiliaryVerbs = this.morphology.makeParticles(
-        pickMe(
-          [
-            // pulled out of hat
-            [3, 10],
-            [4, 40],
-            [5, 60],
-            [6, 80],
-            [7, 95],
-            [8, 100],
-            [9, 90],
-            [10, 50],
-          ],
-          this.rng,
-        )(),
-        false,
-      )
+      const auxiliaryVerbs = this.morphology.makeParticles(auxiliaryVerbCount(this.rng)(), false)
       // if we can have auxiliary verbs, assume we usually have them
       const threshold = hmm.fromRange(0.1, 0.5)
       verb = (stem?: string) =>
@@ -286,14 +340,7 @@ export class SyntaxEngine {
     } else {
       verb = (stem?: string) => this.morphology.verb(stem)
     }
-    const adverbialCount = pickMe(
-      [
-        [0, 50],
-        [1, 2],
-        [2, 1],
-      ],
-      this.rng,
-    )
+    const adverbialCount = adverbialCountMaker(this.rng)
     if (this.syntax.modifierPosition === 'before') {
       this.verbPhrase = (stem?: string) => {
         const ar: string[] = []
@@ -314,167 +361,198 @@ export class SyntaxEngine {
   private initializeNounPhrase(hmm: Hmm) {
     this.stemlessNoun = () => (hmm.maybe(0.2) ? this.morphology.pronoun() : this.nounPhrase())
     if (this.syntax.modifierPosition === 'before') {
-      this.nounPhrase = (params?: NounPhraseParams) => {
-        const noun = this.morphology.noun(params?.stem)
+      this.nounPhrase = (stem?: string) => {
+        const noun = this.morphology.noun(stem)
         const modifier = this.nounModifier()
         return modifier ? `${modifier} ${noun}` : noun
       }
     } else {
-      this.nounPhrase = (params?: NounPhraseParams) => {
-        const noun = this.morphology.noun(params?.stem)
+      this.nounPhrase = (stem?: string) => {
+        const noun = this.morphology.noun(stem)
         const modifier = this.nounModifier()
         return modifier ? `${noun} ${modifier}` : noun
       }
     }
   }
   private initializeAdpositionPosition() {
-    this.adposition = this.morphology.makeParticles(
-      pickMe(
-        [
-          // mostly arbitrary
-          [6, 1],
-          [7, 2],
-          [8, 4],
-          [9, 8],
-          [10, 16],
-        ],
-        this.rng,
-      )(),
-      false,
-    )
+    this.adposition = this.morphology.makeParticles(auxiliaryCountMaker(this.rng)(), false)
     if (this.syntax.adpositionPosition !== undefined) return
-    // loosely taken from https://en.wikipedia.org/wiki/Linguistic_typology#Syntactic_typology
-    let frequencies: [RelativeOrder, number][]
+    let adpositionPosition: (rng: Rng) => () => RelativeOrder
     switch (this.syntax.basicWordOrder!) {
       case 'SOV':
       case 'OVS':
       case 'OSV':
-        frequencies = [
-          ['before', 1],
-          ['after', 6],
-        ]
+        adpositionPosition = OVAdpositionOrderPicker
         break
       case 'SVO':
       case 'VOS':
       case 'VSO':
-        frequencies = [
-          ['before', 6],
-          ['after', 1],
-        ]
+        adpositionPosition = VOAdpositionOrderPicker
         break
       default:
-        frequencies = [
-          ['before', 4],
-          ['after', 1],
-        ]
+        adpositionPosition = nonconfigurationalAdpositionOrderPicker
     }
-    this.syntax.adpositionPosition = pickMe(frequencies, this.rng)()
+    this.syntax.adpositionPosition = adpositionPosition(this.rng)()
   }
   private initializeModifierPosition() {
-    // from https://wals.info/chapter/87
-    this.syntax.modifierPosition ??= pickMe<RelativeOrder>(
-      [
-        ['before', 1],
-        ['after', 2],
-      ],
-      this.rng,
-    )()
+    this.syntax.modifierPosition ??= modifierPositionPicker(this.rng)()
   }
   private initializeQuestionParticlePosition() {
     if (this.syntax.questionParticlePosition !== undefined) return
     switch (this.syntax.assertionParticlePosition!) {
       case 'initial':
-        {
-          this.syntax.questionParticlePosition = pickMe<DiscourseParticlePosition>(
-            [
-              ['initial', 10],
-              ['final', 2],
-              ['none', 1],
-            ],
-            this.rng,
-          )()
-        }
+        this.syntax.questionParticlePosition = questionParticlePositionPickerInitial(this.rng)()
         break
       case 'final':
-        {
-          this.syntax.questionParticlePosition = pickMe<DiscourseParticlePosition>(
-            [
-              ['initial', 2],
-              ['final', 10],
-              ['none', 1],
-            ],
-            this.rng,
-          )()
-        }
+        this.syntax.questionParticlePosition = questionParticlePositionPickerFinal(this.rng)()
         break
-      default: {
-        this.syntax.questionParticlePosition = pickMe<DiscourseParticlePosition>(
-          [
-            ['initial', 3],
-            ['final', 2],
-            ['none', 5],
-          ],
-          this.rng,
-        )()
-      }
+      default:
+        this.syntax.questionParticlePosition = questionParticlePositionPickerNone(this.rng)()
     }
     if (this.syntax.questionParticlePosition !== 'none') {
-      // very arbitrary
-      const n = pickMe(
-        [
-          [1, 4],
-          [2, 2],
-          [3, 1],
-        ],
-        this.rng,
-      )()
+      const n = questionParticleCountPicker(this.rng)()
       this.questionParticle = this.morphology.makeParticles(n, true)
     }
   }
   private initializeAssertionParticlePosition() {
-    this.syntax.assertionParticlePosition ??= pickMe<DiscourseParticlePosition>(
-      [
-        ['initial', 1],
-        ['final', 10],
-        ['none', 20],
-      ],
-      this.rng,
-    )()
+    this.syntax.assertionParticlePosition ??= assertionParticlePositionPicker(this.rng)()
     if (this.syntax.assertionParticlePosition !== 'none') {
-      // very arbitrary
-      const n = pickMe(
-        [
-          [1, 16],
-          [2, 8],
-          [3, 4],
-          [4, 2],
-          [5, 1],
-        ],
-        this.rng,
-      )()
+      const n = assertionParticleCountPicker(this.rng)()
       this.assertionParticle = this.morphology.makeParticles(n, true)
     }
   }
   private initializeWordOrder() {
-    this.syntax.basicWordOrder ??= pickMe<BasicWordOrder>(
-      [
-        ['SOV', 565],
-        ['SVO', 488],
-        ['VSO', 95],
-        ['VOS', 25],
-        ['OVS', 11],
-        ['OSV', 4],
-        ['Unfixed', 189],
-      ],
-      this.rng,
-    )()
+    this.syntax.basicWordOrder ??= basicWordOrderPicker(this.rng)()
   }
   config(): Readonly<Syntax> {
     return this.syntax
   }
 }
 
-function titleize(s: string) {
-    return s.charAt(0).toUpperCase() + s.slice(1);
-}
-  
+/*
+distribution stuff pulled out
+*/
+
+const auxiliaryVerbCount = pickMeToo([
+  // pulled out of hat
+  [3, 10],
+  [4, 40],
+  [5, 60],
+  [6, 80],
+  [7, 95],
+  [8, 100],
+  [9, 90],
+  [10, 50],
+])
+
+const adverbialCountMaker = pickMeToo([
+  [0, 50],
+  [1, 2],
+  [2, 1],
+])
+
+const auxiliaryCountMaker = pickMeToo([
+  // mostly arbitrary
+  [6, 1],
+  [7, 2],
+  [8, 4],
+  [9, 8],
+  [10, 16],
+])
+
+// loosely taken from https://en.wikipedia.org/wiki/Linguistic_typology#Syntactic_typology
+
+const OVAdpositionOrderPicker = pickMeToo<RelativeOrder>([
+  ['before', 1],
+  ['after', 6],
+])
+
+const VOAdpositionOrderPicker = pickMeToo<RelativeOrder>([
+  ['before', 6],
+  ['after', 1],
+])
+
+const nonconfigurationalAdpositionOrderPicker = pickMeToo<RelativeOrder>([
+  ['before', 4],
+  ['after', 1],
+])
+
+// from https://wals.info/chapter/87
+const modifierPositionPicker = pickMeToo<RelativeOrder>([
+  ['before', 1],
+  ['after', 2],
+])
+
+const basicWordOrderPicker = pickMeToo<BasicWordOrder>([
+  ['SOV', 565],
+  ['SVO', 488],
+  ['VSO', 95],
+  ['VOS', 25],
+  ['OVS', 11],
+  ['OSV', 4],
+  ['Unfixed', 189],
+])
+
+// assume most verbs are used intransitively, ditransitives are rare
+const argumentCountPickerSubjectNotRequired = pickMeToo([
+  [0, 12],
+  [1, 12],
+  [2, 8],
+  [3, 1],
+])
+
+const argumentCountPickerSubjectIsRequired = pickMeToo([
+  [1, 12],
+  [2, 8],
+  [3, 1],
+])
+
+const questionParticlePositionPickerInitial = pickMeToo<DiscourseParticlePosition>([
+  ['initial', 10],
+  ['final', 2],
+  ['none', 1],
+])
+
+const questionParticlePositionPickerFinal = pickMeToo<DiscourseParticlePosition>([
+  ['initial', 2],
+  ['final', 10],
+  ['none', 1],
+])
+
+const questionParticlePositionPickerNone = pickMeToo<DiscourseParticlePosition>([
+  ['initial', 3],
+  ['final', 2],
+  ['none', 5],
+])
+
+// very arbitrary
+const questionParticleCountPicker = pickMeToo([
+  [1, 4],
+  [2, 2],
+  [3, 1],
+])
+
+// very arbitrary
+const assertionParticleCountPicker = pickMeToo([
+  [1, 16],
+  [2, 8],
+  [3, 4],
+  [4, 2],
+  [5, 1],
+])
+
+// also arbitrary
+const assertionParticlePositionPicker = pickMeToo<DiscourseParticlePosition>([
+  ['initial', 1],
+  ['final', 10],
+  ['none', 20],
+])
+
+// and also arbitrary
+const sententialParticleCountPicker = pickMeToo([
+  [1, 50],
+  [2, 10],
+  [3, 3],
+  [4, 2],
+  [5, 1],
+])

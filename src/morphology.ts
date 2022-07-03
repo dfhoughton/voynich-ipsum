@@ -30,7 +30,7 @@ const stemComplexity = pickMeToo<StemComplexity>([
 
 export class MorphologyEngine {
   private morphology: Morphology
-  private phonologyEngine: PhonologyEngine
+  private phonologyEngine: Readonly<PhonologyEngine>
   private rng: Rng
   private stem!: () => string
   private phonology: Phonology
@@ -43,7 +43,7 @@ export class MorphologyEngine {
   verb!: (stem?: string) => string
   nounStem!: () => string
   verbStem!: () => string
-  constructor(p: PhonologyEngine, m: Morphology = {}, rng: Rng = () => Math.random()) {
+  constructor(p: Readonly<PhonologyEngine>, m: Morphology = {}, rng: Rng = () => Math.random()) {
     this.morphology = m
     this.phonologyEngine = p
     this.phonology = p.config()

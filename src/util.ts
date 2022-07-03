@@ -91,6 +91,21 @@ export function combinations<T>(parts: T[][]): T[][] {
   return combos
 }
 
+// turns [1, 2, 3] into
+// [[1], [2], [3], [1, 2], [1, 3], [2, 3], [1, 2, 3]] (not in this order)
+export function subsets<T>(options: T[]): T[][] {
+  if (options.length === 0) return []
+  const [head, ...tail] = options
+  const rv: T[][] = []
+  const subsubset = subsets(tail)
+  rv.push([head])
+  for (const ss of subsubset) {
+    rv.push(ss)
+    rv.push([head, ...ss])
+  }
+  return rv
+}
+
 // mechanism to filter duplicates from a list
 export function uniqBy<T, K>(ar: T[], test: (t: T) => K): T[] {
   const seen: Set<K> = new Set()
@@ -114,4 +129,13 @@ export function shuffle<T>(array: T[], rng: Rng) {
     [array[currentIndex], array[randomIndex]] = [array[randomIndex], array[currentIndex]]
   }
   return array
+}
+
+
+export function capitalize(s: string): string {
+  return s.charAt(0).toUpperCase() + s.slice(1)
+}
+
+export function titleize(s: string): string {
+  return s.split(/(\s+)/).map(s => capitalize(s)).join('')
 }

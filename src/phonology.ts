@@ -33,7 +33,7 @@ type VowelComplexity = 'minimal' | 'simple' | 'canonical' | 'complex'
 export class PhonologyEngine {
   private phonology: Phonology
   private syllableGenerator: () => string
-  constructor(p: Phonology = {}, rng: () => number = () => Math.random()) {
+  constructor(p: Phonology = {}, rng: Rng = () => Math.random()) {
     this.phonology = simpleClone(p)
     const h = new Hmm(rng)
     const [nucleus, nucleusCombinations] = pickVowels(p, rng, h)
@@ -50,12 +50,12 @@ export class PhonologyEngine {
   }
 }
 
-const vowelComplexityPicker = pickMeToo([
+const vowelComplexityPicker = pickMeToo<VowelComplexity>([
   ['minimal', 1],
   ['simple', 5],
   ['canonical', 100],
   ['complex', 30],
-]) as any as (rng: Rng) => () => VowelComplexity
+])
 
 const minimalVowelPicker = pickMeToo([
   ['a', 20],

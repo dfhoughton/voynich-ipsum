@@ -10,6 +10,15 @@ this it has a fixed name and properties. You can ask it to generate random text 
 
 Mostly this is intended as a replacement for boring, repetitive Lorem ipsum text.
 
+## Why "voynich-ipsum"?
+
+The [Voynich Manuscript](https://en.wikipedia.org/wiki/Voynich_manuscript) is a famous example of a text that is maybe real, maybe a fraud.
+Examining the statistical properties of the characters, words, and structure of the text suggests mostly that is has the structure of a real
+language, but not entirely, and any affiliation with an existing language and/or writing system is still up in the air.
+
+The aim with `voynich-ipsum` is to generate explicitly fake languages with the same properties. The code incorporates many real linguistic
+properties to produce a patina of plausibility for text that means nothing at all.
+
 ## Synopsis
 
 ```typescript

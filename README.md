@@ -71,6 +71,13 @@ with a mostly latinate character set. It has no variation in orthography. It nev
 
 I had great ambitions for covering typological variables and gave up on most of them because I'm lazy and my attention wanders.
 
+### Sub-caveat
+
+Because parameters are set by a random number generator during initialization, code changes are liable to completely change the language
+generated with a particular random number seed. If this matters to you, you should specify a particular version number in your
+dependencies so your languages won't change dramatically if a new version of lorem-voynich is released. If you're just happy to get
+random gibberish, don't worry about this.
+
 ## Contributing
 
 If you are less lazy or more knowledgeable than me, send me pull requests! Because I am lazy and my attention wanders, I may not respond to them promptly.

@@ -23,6 +23,9 @@ export type Phonology = {
     nasals?: string[]
     approximants?: string[]
   }
+  /**
+   * A record generated from the paramters above.
+   */
   numberPossibleSyllables?: number
 }
 
@@ -30,9 +33,21 @@ type phonemeGenerator = () => string
 
 type VowelComplexity = 'minimal' | 'simple' | 'canonical' | 'complex'
 
+/**
+ * Something that picks the syllables that may appear in a language -- the consonants,
+ * vowels, and their arrangement.
+ * 
+ * There is a great deal of phonology that is ignored by this engine. There are no tones,
+ * vowel harmony, mutations, nasal vowels, and on and on and on. But it's a start.
+ */
 export class PhonologyEngine {
   private phonology: Phonology
   private syllableGenerator: () => string
+  /**
+   * Creates an instance of phonology engine.
+   * @param [p] - optional configuration
+   * @param [rng] - a random number generator for picking configuration parameters that are not supplied and then making syllables
+   */
   constructor(p: Phonology = {}, rng: Rng = () => Math.random()) {
     this.phonology = simpleClone(p)
     const h = new Hmm(rng)
@@ -41,10 +56,25 @@ export class PhonologyEngine {
     p.numberPossibleSyllables = onsetCombinations * nucleusCombinations * codaCombinations
     this.syllableGenerator = () => onset() + nucleus() + coda()
   }
-  // returns a copy of the phonology (copy to prevent mistaken monkeybusiness)
+  /**
+   * Provides the configuration parameters used by the engine.
+   * 
+   * This configuration should be read-only. In any case, changing it will have no effect on
+   * the behavior of the engine, since configuration parameters are only consulted during initialization.
+   * 
+   * If you find a language whose sound you like, you can use this to obtain its configuration and
+   * then copy it to other languages.
+   * 
+   * @returns configuration parameters 
+   */
   config(): Readonly<Phonology> {
     return this.phonology
   }
+  /**
+   * Generates a random syllable.
+   * 
+   * @returns syllable 
+   */
   syllable(): string {
     return this.syllableGenerator()
   }

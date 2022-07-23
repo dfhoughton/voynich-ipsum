@@ -8,7 +8,7 @@ or analytic; it is VSO or SVO or OSV; it has a simple or complex phoneme invento
 is defined by the settings of various parameters and the construction of various probability distributions during instantiation. After
 this it has a fixed name and properties. You can ask it to generate random text with our without a list of topics.
 
-Mostly this is intended as a replacement for boring, repetitive Lorem ipsum text.
+Mostly this is intended as a replacement for boring, repetitive lorem ipsum text.
 
 ## Why "voynich-ipsum"?
 
@@ -58,6 +58,8 @@ console.log(lang.nounPhrase('foo'))
 // => afoo
 ```
 
+Please look at the source code for more guidance. The public methods are documented.
+
 ## Caveats
 
 The choices in here are based in some cases on published research in linguistic typology, sometimes in statistics I scraped out of
@@ -68,3 +70,16 @@ agreement between nouns and adjectives. It doesn't really know about adjectives 
 with a mostly latinate character set. It has no variation in orthography. It never produces a right-to-left language. Etc. Etc. Etc.
 
 I had great ambitions for covering typological variables and gave up on most of them because I'm lazy and my attention wanders.
+
+## Contributing
+
+If you are less lazy or more knowledgeable than me, send me pull requests! Because I am lazy and my attention wanders, I may not respond to them promptly.
+I apologize for that in advance.
+
+## Acknowledgements
+
+I would like to thank my wife and kids, who put up with too much of my nonsense and random enthusiasms.
+
+I would also like to thank my employer, Green River, who also show much patience for my vagaries.
+
+This was all done on my own time for reasons which are not clear even to me.

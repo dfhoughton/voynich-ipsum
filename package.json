@@ -33,6 +33,6 @@
     "typescript": "^4.6.3"
   },
   "dependencies": {
-    "pick-me-too": "^1.2.1"
+    "pick-me-too": "^1.3.0"
   }
 }

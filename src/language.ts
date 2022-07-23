@@ -2,7 +2,7 @@ import { pickMe, pickMeToo, rando, Rng } from 'pick-me-too'
 import { Morphology, MorphologyEngine } from './morphology'
 import { Phonology, PhonologyEngine } from './phonology'
 import { Syntax, SyntaxEngine } from './syntax'
-import { titleize } from './util'
+import { Hmm, titleize } from './util'
 
 export type LanguageParams = {
   seed?: number
@@ -13,16 +13,35 @@ export type LanguageParams = {
   rngGenerator?: (seed: number) => Rng
 }
 
+/**
+ * A generator of gibberish.
+ */
 export class Language {
+  /**
+   * The language's phonology engine.
+   */
   phonology: Readonly<PhonologyEngine>
+  /**
+   * The language's morophology engine.
+   */
   morphology: Readonly<MorphologyEngine>
+  /**
+   * The language's syntactic engine.
+   */
   syntax: Readonly<SyntaxEngine>
+  /**
+   * The name of the language in the language itself.
+   */
   name: Readonly<string>
   private rng: Rng
   private sentenceCount: () => number
   private sentenceType: () => string
   private topicCount: () => number
   private subtopicCount: () => number
+  /**
+   * Creates an instance of language.
+   * @param [{ seed, name, phonology, morphology, syntax, rngGenerator }] 
+   */
   constructor({ seed, name, phonology, morphology, syntax, rngGenerator }: LanguageParams = {}) {
     seed ??= Math.random() * 1000
     this.rng = (rngGenerator ?? rando)(seed)
@@ -35,15 +54,44 @@ export class Language {
     this.topicCount = topicCount(this.rng)
     this.subtopicCount = subtopicCount(this.rng)
   }
+  /**
+   * Makes a complete sentence asserting a proposition, such as "My feet are cold.",
+   * "So it is.", "Tomorrow and tomorrow and tomorrow creeps in this petty pace from day to day
+   * to the last syllable of recorded time, and all our yesterdays have lighted fools the way to
+   * dusty death.", and so forth.
+   * 
+   * @param topics - noun stems 
+   * @returns assertion 
+   */
   assertion(...topics: string[]): string {
     return this.syntax.assertion(...topics)
   }
+  /**
+   * Makes a complete sentence expression a question, such as "Do you want cheese?",
+   * "Why me?", "Whose cousin are you again?", and so forth.
+   * 
+   * @param topics - noun stems 
+   * @returns question 
+   */
   question(...topics: string[]): string {
     return this.syntax.question(...topics)
   }
+  /**
+   * Makes a complete sentence expression an exclamation, such as "Begone, foul demon of the pit!",
+   * "Not on my life!", "Bless your soul!", and so forth.
+   * 
+   * @param topics - noun stems 
+   * @returns exclamation 
+   */
   exclamation(...topics: string[]): string {
     return this.syntax.exclamation(...topics)
   }
+  /**
+   * Makes a random noun phrase, such as "the fat cat", "Ricardo", or "hemorrhagic fever".
+   * 
+   * @param [topic] - a noun stem
+   * @returns phrase 
+   */
   nounPhrase(topic?: string): string {
     return this.syntax.nounPhrase(topic)
   }
@@ -61,6 +109,11 @@ export class Language {
     }
     return ar
   }
+  /**
+   * Makes a collection of sentences on a consistent set of topics.
+   * @param [topics] - a set of noun stems
+   * @returns paragraph 
+   */
   paragraph(topics?: string[]): string {
     topics ??= this.makeTopics(4)
     let lim = 2 // the maximum number of topics per sentence
@@ -93,7 +146,15 @@ export class Language {
     }
     return sentences.join(' ')
   }
-  essay(paragraphs: number, topics?: string[]): string {
+  /**
+   * Makes a few paragraphs of text on a consistent set of topics.
+   *
+   * @param [paragraphs] - the number of paragraphs sought; if no number is provided, a random number between 3 and 15 is chosen
+   * @param [topics] - a set of noun stems
+   * @returns essay
+   */
+  essay(paragraphs?: number, topics?: string[]): string {
+    paragraphs ??= Math.round(new Hmm(this.rng).fromRange(3, 15))
     if (paragraphs < 1) throw 'an essay must have a positive number of paragraphs'
     topics ??= this.makeTopics()
     const frequencies: [string, number][] = []
@@ -108,8 +169,8 @@ export class Language {
       for (let k = 0; k < lim; k++) {
         const t = topicPicker()
         if (!seen.has(t)) {
-            seen.add(t)
-            subtopics.push(t)
+          seen.add(t)
+          subtopics.push(t)
         }
       }
       text.push(this.paragraph(subtopics))
@@ -117,11 +178,30 @@ export class Language {
     return text.join('\n\n')
   }
   /**
-   * Moves some random number of steps along the random number sequence to make 
+   * Randomly resets the seed of the random number generator to make
    * the next text produced unpredictable.
    */
   scramble() {
-    for (let i = 0, lim = Math.random() * 1000; i < lim; i++) this.rng()
+    ;(this.rng as any)(Math.random())
+  }
+  /**
+   * Produces the parameters the *linguistic* parameters of this language.
+   * Only configurable parameters are returned.
+   *
+   * If you find a language with a syntax that suits you, or partially suits you,
+   * you can use this to obtain the configuration, tinker with it, and apply it to other languages.
+   *
+   * Note, the configuration should be regarded as read-only. In any case, if you modify the configuration
+   * it will have no effect on the engine. The configuration parameters are only used during initialization.
+   *
+   * @returns language configuration
+   */
+  config(): Readonly<LanguageParams> {
+    return {
+      phonology: this.phonology.config(),
+      morphology: this.morphology.config(),
+      syntax: this.syntax.config(),
+    }
   }
 }
 
@@ -171,7 +251,7 @@ const topicCount = pickMeToo([
 
 // topics per paragraph
 const subtopicCount = pickMeToo([
-    // arbitrary
+  // arbitrary
   [1, 1],
   [2, 4],
   [3, 8],

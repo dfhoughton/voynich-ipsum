@@ -24,6 +24,8 @@ type SententialParticlePosition = 'initial' | 'final' | 'beforeVerb' | 'afterVer
 
 /**
  * The thing that puts words in order.
+ * 
+ * There is a vast amount of syntax that is ignored here.
  */
 export class SyntaxEngine {
   private morphology: Readonly<MorphologyEngine>
@@ -44,6 +46,14 @@ export class SyntaxEngine {
   assertion!: (...topics: string[]) => string
   question!: (...topics: string[]) => string
   exclamation!: (...topics: string[]) => string
+  /**
+   * Creates an object that will pick syntactic structure. It sets its parameters during construction,
+   * then generates random syntax on demand.
+   *
+   * @param m - the morphology providing the words for the syntax entine to arrange
+   * @param [s] - optional configuration
+   * @param [rng] random number generator for picking parameters not in configuration and then generating random syntax
+   */
   constructor(m: Readonly<MorphologyEngine>, s: Syntax = {}, rng: Rng = () => Math.random()) {
     this.syntax = s
     this.morphology = m
@@ -424,6 +434,17 @@ export class SyntaxEngine {
   private initializeWordOrder() {
     this.syntax.basicWordOrder ??= basicWordOrderPicker(this.rng)()
   }
+  /**
+   * Produces the parameters this engine is using. Only configurable parameters are returned.
+   * 
+   * If you find a language with a syntax that suits you, you can use this to obtain the configuration
+   * and apply it to other languages.
+   * 
+   * Note, the configuration should be regarded as read-only. In any case, if you modify the configuration
+   * it will have no effect on the engine. The configuration parameters are only used during initialization.
+   * 
+   * @returns syntax configuration 
+   */
   config(): Readonly<Syntax> {
     return this.syntax
   }

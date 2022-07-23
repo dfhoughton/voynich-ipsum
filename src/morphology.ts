@@ -28,6 +28,11 @@ const stemComplexity = pickMeToo<StemComplexity>([
   ['complex', 1],
 ])
 
+/**
+ * A thing for building words.
+ * 
+ * A vast amount of morphology is ignored by this. There is no reduplication, for example.
+ */
 export class MorphologyEngine {
   private morphology: Morphology
   private phonologyEngine: Readonly<PhonologyEngine>
@@ -36,13 +41,44 @@ export class MorphologyEngine {
   private phonology: Phonology
   private closedClassStems: Set<string>
   private adfixMaker!: () => string
+  /**
+   * Makes a small adverbish word. This will be from a closed class.
+   */
   particle!: () => string
+  /**
+   * Makes a word with noun morphology. There is a closed class of common nouns
+   * and an open class of less common nouns.
+   */
   noun!: (stem?: string) => string
+  /**
+   * Picks a form from the closed class of pronouns.
+   */
   pronoun!: () => string
+  /**
+   * Generates an adverbish thing.
+   */
   adverb!: () => string
+  /**
+   * Makes a word with verbal morphology. There is a closed class of common verbs
+   * and an open class of less common verbs.
+   */
   verb!: (stem?: string) => string
+  /**
+   * Generates a noun stem. This may include derivational morphology but will not include
+   * inflectional morphology.
+   */
   nounStem!: () => string
+  /**
+   * Generates a verb stem. This may include derivational morphology but will not include
+   * inflectional morphology.
+   */
   verbStem!: () => string
+  /**
+   * Creates an instance of morphology engine.
+   * @param p - the thing that will give us syllables
+   * @param [m] - optional configuration parameters
+   * @param [rng] - a random number generator with which to pick configuration parameters and then to build random words
+   */
   constructor(p: Readonly<PhonologyEngine>, m: Morphology = {}, rng: Rng = () => Math.random()) {
     this.morphology = m
     this.phonologyEngine = p
@@ -400,6 +436,17 @@ export class MorphologyEngine {
   }
 
   // returns a copy of the phonology (copy to prevent mistaken monkeybusiness)
+  /**
+   * Provides the configuration parameters used by the engine.
+   * 
+   * This configuration should be read-only. In any case, changing it will have no effect on
+   * the behavior of the engine, since configuration parameters are only consulted during initialization.
+   * 
+   * If you find a language whose word shapes you like, you can use this to obtain its configuration and
+   * then copy it to other languages.
+   * 
+   * @returns configuration parameters 
+   */
   config(): Readonly<Morphology> {
     return this.morphology
   }
@@ -416,7 +463,14 @@ export class MorphologyEngine {
     )
   }
 
-  // create a closed class of morphemes that will appear in a particular morphological or syntactic "slot"
+  /**
+   * Creates a closed class of morphemes that will appear in a particular morphological or syntactic "slot".
+   * This is a public method mostly because syntax engines need it.
+   * 
+   * @param n -- a number of "particles" to make
+   * @param includeBlank -- whether the null particle should be among the particles
+   * @returns a collection of morphemes
+   */
   makeParticles(n: number, includeBlank: boolean): () => string {
     const seen: Set<string> = new Set()
     let found: string[] = []
@@ -424,7 +478,7 @@ export class MorphologyEngine {
     let safety = 0 // we'll just cut things off after 1000 samples if we get that far
     // we assume inflectional morphemes tend to have relatively simple syllable structure,
     // so for languages with complex syllable structure, we overgenerate candidates and filter
-    // NOTE: to simplify things we aren't generating any multi-syllabic morphemes, like Latin -ōrum
+    // NOTE: to simplify things we aren't generating any multi-syllabic morphemes like Latin -ōrum
 
     while (found.length < n && safety < 1000) {
       const s = this.simpleSyllable()

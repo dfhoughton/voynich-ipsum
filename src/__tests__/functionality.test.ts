@@ -58,6 +58,7 @@ describe('language', () => {
     // language.scramble()
     console.log('name', language.name)
     test('name', () => expect(language.name).toBeDefined())
+    language.scramble()
     console.log(language.essay(5))
     console.log(language.assertion('foo'))
     console.log(language.question('foo'))

@@ -18,10 +18,10 @@
     "url": "https://github.com/dfhoughton"
   },
   "license": "MIT",
-  "homepage": "https://github.com/dfhoughton/pick-me",
+  "homepage": "https://github.com/dfhoughton/voynich-ipsum",
   "repository": {
     "type": "git",
-    "url": "https://github.com/dfhoughton/pick-me"
+    "url": "https://github.com/dfhoughton/voynich-ipsum"
   },
   "devDependencies": {
     "@types/jest": "^27.4.1",

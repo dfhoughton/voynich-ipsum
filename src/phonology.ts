@@ -1,5 +1,5 @@
 import { pickMe, pickMeToo, Rng } from 'pick-me-too'
-import { assertNever, combinations, compact, Hmm, pickN, simpleClone, uniqBy } from './util'
+import { assertNever, combinations, compact, Hmm, pickN, uniqBy } from './util'
 
 export type Phonology = {
   closedSyllables?: boolean
@@ -49,7 +49,7 @@ export class PhonologyEngine {
    * @param [rng] - a random number generator for picking configuration parameters that are not supplied and then making syllables
    */
   constructor(p: Phonology = {}, rng: Rng = () => Math.random()) {
-    this.phonology = simpleClone(p)
+    this.phonology = p
     const h = new Hmm(rng)
     const [nucleus, nucleusCombinations] = pickVowels(p, rng, h)
     const [onset, coda, onsetCombinations, codaCombinations] = pickConsonants(p, rng, h)

@@ -1,6 +1,6 @@
 {
   "name": "voynich-ipsum",
-  "version": "1.0.1",
+  "version": "1.1.0",
   "description": "Generates natural-looking lorem ipsum text.",
   "main": "lib/index.js",
   "types": "lib/index.ts",

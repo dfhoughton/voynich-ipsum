@@ -38,13 +38,14 @@ export class Language {
   private sentenceType: () => string
   private topicCount: () => number
   private subtopicCount: () => number
+  private seed: number
   /**
    * Creates an instance of language.
    * @param [{ seed, name, phonology, morphology, syntax, rngGenerator }] 
    */
   constructor({ seed, name, phonology, morphology, syntax, rngGenerator }: LanguageParams = {}) {
-    seed ??= Math.random() * 1000
-    this.rng = (rngGenerator ?? rando)(seed)
+    this.seed ??= Math.random() * 1000
+    this.rng = (rngGenerator ?? rando)(this.seed)
     this.phonology = new PhonologyEngine(phonology, this.rng)
     this.morphology = new MorphologyEngine(this.phonology, morphology, this.rng)
     this.syntax = new SyntaxEngine(this.morphology, syntax, this.rng)
@@ -185,8 +186,7 @@ export class Language {
     ;(this.rng as any)(Math.random())
   }
   /**
-   * Produces the parameters the *linguistic* parameters of this language.
-   * Only configurable parameters are returned.
+   * Produces the configurable parameters of this language aside from the random number generator.
    *
    * If you find a language with a syntax that suits you, or partially suits you,
    * you can use this to obtain the configuration, tinker with it, and apply it to other languages.
@@ -198,6 +198,8 @@ export class Language {
    */
   config(): Readonly<LanguageParams> {
     return {
+      name: this.name,
+      seed: this.seed,
       phonology: this.phonology.config(),
       morphology: this.morphology.config(),
       syntax: this.syntax.config(),

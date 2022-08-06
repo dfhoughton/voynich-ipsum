@@ -44,7 +44,7 @@ export class Language {
    * @param [{ seed, name, phonology, morphology, syntax, rngGenerator }] 
    */
   constructor({ seed, name, phonology, morphology, syntax, rngGenerator }: LanguageParams = {}) {
-    this.seed ??= Math.random() * 1000
+    this.seed = seed ?? Math.random() * 1000
     this.rng = (rngGenerator ?? rando)(this.seed)
     this.phonology = new PhonologyEngine(phonology, this.rng)
     this.morphology = new MorphologyEngine(this.phonology, morphology, this.rng)

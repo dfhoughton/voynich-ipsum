@@ -1,5 +1,7 @@
 # Changelog
 
+## v1.2.0
+- switched to more efficient version of pick-me
 ## v1.1.1 *2022-8-6*
 - fixed bug where `seed` parameter was being ignored by constructor
 ## v1.1.0 *2022-7-24*

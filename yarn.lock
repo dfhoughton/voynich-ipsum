@@ -2339,10 +2339,10 @@ path-parse@^1.0.7:
   resolved "https://registry.yarnpkg.com/path-parse/-/path-parse-1.0.7.tgz#fbc114b60ca42b30d9daf5858e4bd68bbedb6735"
   integrity sha512-LDJzPVEEEPR+y48z93A0Ed0yXb8pAByGWo/k5YYdYgpY2/2EsOsksJrq7lOHxryrVOn1ejG6oAp8ahvOIQD8sw==
 
-pick-me-too@^1.2.1:
-  version "1.2.1"
-  resolved "https://registry.yarnpkg.com/pick-me-too/-/pick-me-too-1.2.1.tgz#e557c368cf5bccd759afb0ae893f0945f01bb60d"
-  integrity sha512-G3VlwyjC53irz2RIIBmfXk1/ggSJyrMvpCMa/9H/7XGAvpIr8DNlY+CId3XCaChjq4sDEjvX2jWaBU6lJMPH6w==
+pick-me-too@^2.0.0:
+  version "2.0.0"
+  resolved "https://registry.yarnpkg.com/pick-me-too/-/pick-me-too-2.0.0.tgz#d6f01d8b3a929b15e3afd2b7662e2af63e2dfada"
+  integrity sha512-35+A5QmPLyeS/ugiGg9q33+fTx0L/5jFVRY++fqklkZdQzQAwtjRTFQm5EbsWcU7Fie4RiRL9I6QCCKiWAWIhQ==
 
 picocolors@^1.0.0:
   version "1.0.0"

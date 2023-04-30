@@ -1,0 +1,15 @@
+{
+  "name": "static",
+  "private": "true",
+  "description": "seeing if I can make static site this way",
+  "dependencies": {
+    "typescript": "^5.0.4",
+    "voynich-ipsum": "^1.2.0"
+  },
+  "prettier": {
+    "semi": false
+  },
+  "scripts": {
+    "build": "esbuild typescript/simple.ts --bundle --minify --tree-shaking=true --outfile=app.js"
+  }
+}
